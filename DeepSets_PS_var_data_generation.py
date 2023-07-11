@@ -113,7 +113,7 @@ for filename in all_variation_files:
     variation_dataset = uproot.open(filename)["Events"]
     filesize = int(variation_dataset.arrays(jet_features[0]).type.length)
     print(filesize)
-    for i in tqdm(range(int(np.ceil(filesize / chunk_size)))):
+    for i in range(int(np.ceil(filesize / chunk_size))):
         jet_arr = variation_dataset.arrays(jet_features, entry_start=int(i * chunk_size), entry_stop=int((i+1) * chunk_size))
         electron_arr = variation_dataset.arrays(electron_features, entry_start=int(i * chunk_size), entry_stop=int((i+1) * chunk_size))
         muon_arr = variation_dataset.arrays(muon_features, entry_start=int(i * chunk_size), entry_stop=int((i+1) * chunk_size))
