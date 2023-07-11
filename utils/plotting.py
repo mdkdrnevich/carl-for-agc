@@ -8,7 +8,7 @@ import matplotlib.font_manager as font_manager
 
 def plot_distributions(nominal_data, alternate_data,
                        nominal_weights, carl_weights, alternate_weights,
-                       nominal_mask=None, alternate_mask=None, alternate_name="", feature_name="", logscale=True, saveAs=None):
+                       nominal_mask=None, alternate_mask=None, carl_mask=None, alternate_name="", feature_name="", logscale=True, saveAs=None):
     font = font_manager.FontProperties(family='Symbol',
                                        style='normal', size=16)
     plt.rcParams['legend.title_fontsize'] = 18
@@ -34,8 +34,12 @@ def plot_distributions(nominal_data, alternate_data,
     x1 = alternate_data
     w1 = alternate_weights
     
-    if nominal_mask is not None:
-        athena_mask = nominal_mask(nominal_data)
+    if nominal_mask is not None or carl_mask is not None:
+        athena_mask = np.zeros(w0.shape) == 0
+        if nominal_mask is not None:
+            athena_mask = athena_mask & nominal_mask(nominal_data)
+        if carl_mask is not None:
+            athena_mask = athena_mask & carl_mask(carl_weights)        
         print(athena_mask.sum())
         x0 = x0[athena_mask]
         w0 = w0[athena_mask]
