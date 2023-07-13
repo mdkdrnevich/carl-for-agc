@@ -1,0 +1,41 @@
+Electron_set:
+  set: true
+  subfeatures:
+  - Electron_pt
+  - Electron_eta
+  - Electron_phi
+  - Electron_mass
+FatJet_set:
+  set: true
+  subfeatures:
+  - FatJet_pt
+  - FatJet_eta
+  - FatJet_phi
+  - FatJet_mass
+  - FatJet_btagCSVV2
+Jet_set:
+  set: true
+  subfeatures:
+  - Jet_pt
+  - Jet_eta
+  - Jet_phi
+  - Jet_mass
+  - Jet_btagCSVV2
+MET_sumEt:
+  set: false
+  subfeatures:
+  - MET_sumEt
+Muon_set:
+  set: true
+  subfeatures:
+  - Muon_pt
+  - Muon_eta
+  - Muon_phi
+  - Muon_mass
+Photon_set:
+  set: true
+  subfeatures:
+  - Photon_pt
+  - Photon_eta
+  - Photon_phi
+  - Photon_mass
