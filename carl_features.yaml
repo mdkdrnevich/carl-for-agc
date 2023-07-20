@@ -1,5 +1,6 @@
 Electron_set:
   set: true
+  size: 4
   subfeatures:
   - Electron_pt
   - Electron_eta
@@ -7,6 +8,7 @@ Electron_set:
   - Electron_mass
 FatJet_set:
   set: true
+  size: 5
   subfeatures:
   - FatJet_pt
   - FatJet_eta
@@ -15,6 +17,7 @@ FatJet_set:
   - FatJet_btagCSVV2
 Jet_set:
   set: true
+  size: 5
   subfeatures:
   - Jet_pt
   - Jet_eta
@@ -23,10 +26,12 @@ Jet_set:
   - Jet_btagCSVV2
 MET_sumEt:
   set: false
+  size: 1
   subfeatures:
   - MET_sumEt
 Muon_set:
   set: true
+  size: 4
   subfeatures:
   - Muon_pt
   - Muon_eta
@@ -34,6 +39,7 @@ Muon_set:
   - Muon_mass
 Photon_set:
   set: true
+  size: 4
   subfeatures:
   - Photon_pt
   - Photon_eta

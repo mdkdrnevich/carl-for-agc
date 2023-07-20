@@ -2,13 +2,114 @@ import uproot
 import uproot.exceptions as exceptions
 import numpy as np
 import math
+import collections
+import torch
+from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as font_manager
+from tqdm import tqdm
+
+
+def get_set_feature(batch_list, set_name, set_ix, feature_ix, features, sort_index=0):
+    x_batch_list = []
+    w_batch_list = []
+    for sample in batch_list:
+        for i, feat in enumerate(features):
+            if feat != set_name:
+                continue
+            t = sample[i]
+            # Sort by pT, assuming it's the first column
+            t = t[t[:,sort_index].argsort(dim=0, descending=True)]
+            try:
+                x_batch_list.append(t[set_ix, feature_ix])
+            except IndexError:
+                x_batch_list.append(np.nan)
+        w_batch_list.append(sample[-1])
+    x_batch = torch.tensor(x_batch_list)
+    w_batch = torch.cat(w_batch_list, dim=0)
+    return x_batch[:, None], w_batch[:, None]
+    
+
+def get_vector_feature(batch_list, name, ix, features):
+    x_batch_list = []
+    w_batch_list = []
+    for sample in batch_list:
+        for i, feat in enumerate(features):
+            if feat != name:
+                continue
+            t = sample[i]
+            try:
+                x_batch_list.append(t[0, ix])
+            except IndexError:
+                x_batch_list.append(np.nan)
+        w_batch_list.append(sample[-1])
+    x_batch = torch.tensor(x_batch_list)
+    w_batch = torch.cat(w_batch_list, dim=0)
+    return x_batch[:, None], w_batch[:, None]
+
+
+def get_feature_DataLoader(generator, features, feature_name, index=None, subfeature_name=None, sort_index=0, sort_feature=None, batch_size=128, shuffle=False):
+    features = collections.OrderedDict(sorted(features.items()))
+    if sort_feature is not None:
+        sort_index = features[feature_name]["subfeatures"].index(sort_feature)
+    
+    loader = DataLoader(generator, batch_size=batch_size, shuffle=shuffle)
+    if features[feature_name]["set"] is True:
+        try:
+            if subfeature_name is not None and type(index) is int:
+                index = (index, features[feature_name]["subfeatures"].index(subfeature_name))
+            loader.collate_fn = lambda batch: get_set_feature(batch, feature_name, index[0], index[1], features, sort_index=sort_index)
+        except TypeError:
+            print("ERROR: If accessing a set feature then a 2D index should be provided, i.e. (set_index, feature_index), or index should be the set_index and a subfeature_name should be provided.")
+    else:
+        if index is None and subfeature_name is None:
+            print("ERROR: If accessing a float/vector feature then a single index should be provided or a subfeature_name should be provided.")
+        else:
+            if subfeature_name is not None:
+                index = features[feature_name]["subfeatures"].index(subfeature_name)
+            loader.collate_fn = lambda batch: get_vector_feature(batch, feature_name, index, features)
+    return loader
+
+
+@torch.no_grad()
+def get_feature_data(loader):
+    temp_x = []
+    temp_w = []
+    t = tqdm(enumerate(loader), total=len(loader))
+    for i, batch in t:
+        temp_x.append(batch[0])
+        temp_w.append(batch[1])
+        t.refresh()  # to show immediately the update
+    return torch.cat(temp_x).numpy().flatten(), torch.cat(temp_w).numpy().flatten()
+
+
+# Idea for later
+"""def event_mass(batch_list):
+    x_batch_list = []
+    w_batch_list = []
+    for sample in batch_list:
+        _data = sample[0].numpy()
+        vec = vector.array(
+            {
+                "pt": _data[:,0],
+                "eta": _data[:,1],
+                "phi": _data[:,2],
+                "M": _data[:,3]
+            }
+        )
+        total_vec = vec[0]
+        for v in vec[1:]:
+            total_vec += v
+        x_batch_list.append(total_vec.mass)
+        w_batch_list.append(sample[2])
+    x_batch = torch.tensor(x_batch_list)
+    w_batch = torch.cat(w_batch_list, dim=0)
+    return x_batch[:, None], w_batch[:, None]"""
 
 
 def plot_distributions(nominal_data, alternate_data,
                        nominal_weights, carl_weights, alternate_weights,
-                       nominal_mask=None, alternate_mask=None, carl_mask=None, alternate_name="", feature_name="", logscale=True, saveAs=None):
+                       nominal_mask=np.isfinite, alternate_mask=np.isfinite, carl_mask=None, alternate_name="", feature_name="", logscale=True, saveAs=None):
     font = font_manager.FontProperties(family='Symbol',
                                        style='normal', size=16)
     plt.rcParams['legend.title_fontsize'] = 18
@@ -207,3 +308,31 @@ def plot_distributions(nominal_data, alternate_data,
     axes[2].set_yticks(np.arange(-8,8,1.0));
     if saveAs is not None:
         fig.savefig(saveAs)
+
+
+def plot_carl_reweighting(nominal_dataset, alternative_dataset, carl_weights, features, feature_name,
+                          index=None, subfeature_name=None, sort_index=0, sort_feature=None, batch_size=128, shuffle=False, # dataloader settings
+                          nominal_mask=np.isfinite, alternate_mask=np.isfinite, carl_mask=None, alternate_name="", logscale=True, saveAs=None): # plotting settings
+    
+    test_nominal_loader = get_feature_DataLoader(nominal_dataset, features, feature_name, index=index, subfeature_name=subfeature_name, sort_index=sort_index, sort_feature=sort_feature, batch_size=batch_size, shuffle=shuffle)
+    test_alt_loader = get_feature_DataLoader(alternative_dataset, features, feature_name, index=index, subfeature_name=subfeature_name, sort_index=sort_index, sort_feature=sort_feature, batch_size=batch_size, shuffle=shuffle)
+
+    test_nominal_data = get_feature_data(test_nominal_loader)
+    test_alt_data = get_feature_data(test_alt_loader)
+
+    x_title = ""
+    if features[feature_name]["set"] is True:
+        if subfeature_name is None:
+            subfeature_name = features[feature_name]["subfeatures"][index[1]]
+            x_title = "{}.{} {}".format(feature_name, subfeature_name, index[0])
+        else:
+            x_title = "{}.{} {}".format(feature_name, subfeature_name, index)
+    else:
+        if subfeature_name is None:
+            subfeature_name = features[feature_name]["subfeatures"][index]
+        x_title = "{}.{}".format(feature_name, subfeature_name)
+
+    plot_distributions(test_nominal_data[0], test_alt_data[0],
+                       test_nominal_data[1], carl_weights, test_alt_data[1],
+                       feature_name=x_title, alternate_name=alternate_name,
+                       nominal_mask=nominal_mask, alternate_mask=alternate_mask, carl_mask=carl_mask, logscale=logscale, saveAs=saveAs)
