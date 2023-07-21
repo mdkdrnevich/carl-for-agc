@@ -182,7 +182,7 @@ def get_model_metadata(training_settings, model, input_scalers, weight_scale):
     return metadata    
 
 
-def save_model_data(model, metadata, name="deepsets_model"):    
+def save_model_data(model, metadata, name="deepsets_model"):
     yaml.dump(metadata, open("deepsets_metadata.yaml", 'w'))
     model.save("deepsets_ensemble_best.pth")
     

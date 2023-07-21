@@ -112,16 +112,16 @@ class DeepSetsEnsemble(torch.nn.Module):
     def save(self, path):
         torch.save(self.state_dict(), path)
 
-    def load(self, path, is_zip=False):
+    def load(self, path, is_zip=False, device='cpu'):
         if is_zip is False:
-            self.load_state_dict(torch.load(path))
+            self.load_state_dict(torch.load(path, map_location=device))
         return self
 
 
-def load_model(path_to_zip):
+def load_model(path_to_zip, device='cpu'):
     with zipfile.ZipFile(path_to_zip, 'r') as zf:
         model_metadata = yaml.load(zf.read("deepsets_metadata.yaml"), Loader=yaml.CLoader)["model"]
         features = collections.OrderedDict(sorted(model_metadata["features"].items()))
         model = DeepSetsEnsemble(model_metadata["features"], model_metadata["phi"], model_metadata["mlp"])
-        model.load_state_dict(torch.load(io.BytesIO(zf.read("deepsets_ensemble_best.pth"))))
+        model.load_state_dict(torch.load(io.BytesIO(zf.read("deepsets_ensemble_best.pth")), map_location=device))
     return model
