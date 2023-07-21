@@ -59,7 +59,7 @@ def train_epoch(model, optimizer, loader, leave=False, device='cpu'):
     return sum_loss / (i + 1)
 
 
-def train_loop(model, optimizer, train_loader, validation_loader, n_epochs, patience=5, return_best_model=True, device='cpu'):
+def train_loop(model, optimizer, train_loader, validation_loader, n_epochs, patience=5, return_best_model=True, device='cpu', saveAs="deepsets_model", model_metadata=None):
     stale_epochs = 0
     best_valid_loss = 99999
     
@@ -84,9 +84,13 @@ def train_loop(model, optimizer, train_loader, validation_loader, n_epochs, pati
     
         if valid_loss < best_valid_loss:
             best_valid_loss = valid_loss
-            modpath = osp.join("deepsets_ensemble_best.pth")
-            model.save(modpath)
-            print("New best model saved to:", modpath)
+            if model_metadata is not None:
+                save_model_data(model, model_metadata, name=saveAs)
+                print("New best model saved to: {}.zip".format(saveAs))
+            else:
+                modpath = osp.join("{}.pth".format(saveAs))
+                model.save(modpath)
+                print("New best model saved to:", modpath)
             stale_epochs = 0
         else:
             print("Stale epoch")
@@ -96,11 +100,14 @@ def train_loop(model, optimizer, train_loader, validation_loader, n_epochs, pati
             break
 
     if return_best_model is True:
-        model.load("deepsets_ensemble_best.pth")
+        if model_metadata is None:
+            model.load(osp.join("{}.pth".format(saveAs)))
+        else:
+            model = carl_models.load_model("{}.zip".format(saveAs))
     return model
 
 
-def train(model_settings, training_dataset, validation_dataset, optimizer="Adam", learning_rate=1e-2, batch_size=128, n_epochs=10, patience=5, return_best_model=True, device='cpu', **kwargs):
+def train(model_settings, training_dataset, validation_dataset, optimizer="Adam", learning_rate=1e-2, batch_size=128, n_epochs=10, patience=5, return_best_model=True, device='cpu', saveAs="deepsets_model", **kwargs):
     training_settings = {
         "optimizer": optimizer,
         "learning_rate": learning_rate,
@@ -132,6 +139,8 @@ def train(model_settings, training_dataset, validation_dataset, optimizer="Adam"
     valid_loader = carl_preprocessing.get_training_DataLoader(validation_dataset, features,
                                                               X_scalers, weight_norm=weight_norm,
                                                               batch_size=batch_size, shuffle=False)
+    
+    model_metadata = get_model_metadata(training_settings, model, X_scalers, weight_norm)
     print("Training the model")
     model = train_loop(
         model,
@@ -141,15 +150,15 @@ def train(model_settings, training_dataset, validation_dataset, optimizer="Adam"
         n_epochs,
         patience=patience,
         device=device,
-        return_best_model=return_best_model
+        return_best_model=return_best_model,
+        saveAs=saveAs,
+        model_metadata=model_metadata
     )
     print("Finished training")
-    print("Saved final model data to zip file")
-    save_model_data(training_settings, model, X_scalers, weight_norm)
     return model
 
 
-def save_model_data(training_settings, model, input_scalers, weight_scale, name="deepsets_model"):
+def get_model_metadata(training_settings, model, input_scalers, weight_scale):
     model_settings = {
         "features": model.features,
         "phi": model._phi_nodes,
@@ -170,7 +179,10 @@ def save_model_data(training_settings, model, input_scalers, weight_scale, name=
         "training": training_settings,
         "scaling": scaling_settings        
     }
-    
+    return metadata    
+
+
+def save_model_data(model, metadata, name="deepsets_model"):    
     yaml.dump(metadata, open("deepsets_metadata.yaml", 'w'))
     model.save("deepsets_ensemble_best.pth")
     
