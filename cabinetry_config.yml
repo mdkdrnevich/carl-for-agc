@@ -47,7 +47,7 @@ Systematics:
   - Name: "PS variation"
     Type: "NormPlusShape"
     Up:
-      VariationPath: "_PS_var"
+      VariationPath: "_CARL_PS_var"
     Down:
       Symmetrize: True
     Samples: "ttbar"
