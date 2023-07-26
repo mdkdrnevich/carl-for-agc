@@ -110,7 +110,18 @@ def get_feature_map(jets, electrons, muons):
     return carl_feature_map
 
 
-def get_inference_results_local(model, features, feature_map, X_scalers):
+def get_inference_results_local(events, model, features, X_scalers):
+    feature_map = {}
+    for key in features:
+        for branch in features[key]["subfeatures"]:
+            if "_" in branch:
+                split = branch.split("_")
+                object_type = split[0]
+                property_name = "_".join(split[1:])
+                feature_map[branch] = events[object_type][property_name]
+            else:
+                feature_map[branch] = events[branch]
+    
     ds = AGCDataset(features, feature_map)
     loader = get_eval_DataLoader(carl_utils.preprocessing.ConcatDataset(ds), features, X_scalers)
     carl_weights = carl_utils.eval.get_r_hats(model, loader)
