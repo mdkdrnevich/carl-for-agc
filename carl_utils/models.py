@@ -64,12 +64,14 @@ class DeepSetsEnsemble(torch.nn.Module):
 
 
     def forward(self, x, sample_indices):
+        sample_indices = torch.cat([torch.zeros(sample_indices.size(0), 1, dtype=int), sample_indices], dim=1)
+        sample_indices = torch.cumsum(sample_indices, dim=1)
         repr_values = []
         phi_counter = 0
         for i, feat in enumerate(self.features):
             if self.features[feat]["set"] is True:
                 out_i = self.phi[phi_counter](x[i])
-                out_i = torch.cat([torch.mean(out_i[:, :, sample_indices[i][j]:sample_indices[i][j+1]], dim=2) for j in range(len(sample_indices[i])-1)], dim=0)
+                out_i = torch.cat([torch.mean(out_i[:, :, sample_indices[i,j]:sample_indices[i,j+1]], dim=2) for j in range(sample_indices.size(1)-1)], dim=0)
                 repr_values.append(out_i)
                 phi_counter += 1
             else:

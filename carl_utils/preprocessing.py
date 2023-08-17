@@ -142,7 +142,7 @@ def get_scaling(dataset, features, batch_size=1024, shuffle=False):
 
 def prep_inputs_for_training(batch_list, features, x_scalers, weight_norm=1):
     num_features = len(features)
-    sample_indices = [[0] for _ in range(num_features)]
+    sample_indices = [[] for _ in range(num_features)]
     x_batch_list = [[] for _ in range(num_features)]
     y_batch_list = []
     w_batch_list = []
@@ -165,7 +165,8 @@ def prep_inputs_for_training(batch_list, features, x_scalers, weight_norm=1):
             x_batch.append(torch.from_numpy(x)[None, :])
     y_batch = torch.cat(y_batch_list, dim=0)
     w_batch = torch.cat(w_batch_list, dim=0) / weight_norm
-    sample_indices = torch.from_numpy(np.array([np.cumsum(s) for s in sample_indices]))
+    sample_indices = torch.tensor(sample_indices)
+    #sample_indices = torch.from_numpy(np.array([np.cumsum(s) for s in sample_indices]))
     return (x_batch, y_batch[:, None], w_batch[:, None]), sample_indices
 
 

@@ -65,6 +65,9 @@ def train_loop(model, optimizer, train_loader, validation_loader, n_epochs, pati
     
     t = tqdm(range(0, n_epochs), leave=False)
 
+    train_losses = []
+    val_losses = []
+
     for epoch in t:
         loss = train_epoch(
             model,
@@ -79,6 +82,8 @@ def train_loop(model, optimizer, train_loader, validation_loader, n_epochs, pati
             leave=bool(epoch == n_epochs - 1),
             device=device
         )
+        train_losses.append(loss)
+        val_losses.append(valid_loss)
         print("Epoch: {:02d}, Training Loss:   {:.4f}".format(epoch+1, loss))
         print("           Validation Loss: {:.4f}".format(valid_loss))
     
@@ -104,7 +109,7 @@ def train_loop(model, optimizer, train_loader, validation_loader, n_epochs, pati
             model.load(osp.join("{}.pth".format(saveAs)))
         else:
             model = carl_models.load_model("{}.zip".format(saveAs))
-    return model
+    return model, (train_losses, val_losses)
 
 
 def train(model_settings, training_dataset, validation_dataset, optimizer="Adam", learning_rate=1e-2, batch_size=128, n_epochs=10, patience=5, return_best_model=True, device='cpu', saveAs="deepsets_model", **kwargs):
@@ -142,7 +147,7 @@ def train(model_settings, training_dataset, validation_dataset, optimizer="Adam"
     
     model_metadata = get_model_metadata(training_settings, model, X_scalers, weight_norm)
     print("Training the model")
-    model = train_loop(
+    model, losses = train_loop(
         model,
         optim,
         train_loader,
@@ -155,7 +160,7 @@ def train(model_settings, training_dataset, validation_dataset, optimizer="Adam"
         model_metadata=model_metadata
     )
     print("Finished training")
-    return model
+    return model, losses
 
 
 def get_model_metadata(training_settings, model, input_scalers, weight_scale):
