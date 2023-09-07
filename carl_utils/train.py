@@ -25,7 +25,7 @@ def test(model, loader, leave=False, device='cpu'):
         y = data[1].to(device)
         w = data[2].to(device)
         sample_indices.to(device)
-        batch_output = model(x, sample_indices)
+        batch_output = model(*x, sample_indices)
         batch_loss_item = F.binary_cross_entropy(batch_output, y, weight=w).cpu().item()
         sum_loss += batch_loss_item
         t.set_description("loss = %.5f" % (batch_loss_item))
@@ -47,7 +47,7 @@ def train_epoch(model, optimizer, loader, leave=False, device='cpu'):
         y = data[1].to(device)
         w = data[2].to(device)
         sample_indices.to(device)
-        batch_output = model(x, sample_indices)
+        batch_output = model(*x, sample_indices)
         batch_loss = F.binary_cross_entropy(batch_output, y, weight=w)
         batch_loss.backward()
         batch_loss_item = batch_loss.item()
@@ -90,7 +90,7 @@ def train_loop(model, optimizer, train_loader, validation_loader, n_epochs, pati
         if valid_loss < best_valid_loss:
             best_valid_loss = valid_loss
             if model_metadata is not None:
-                save_model_data(model, model_metadata, name=saveAs)
+                save_model_data(model, model_metadata, name=saveAs, device=device)
                 print("New best model saved to: {}.zip".format(saveAs))
             else:
                 modpath = osp.join("{}.pth".format(saveAs))
@@ -187,16 +187,38 @@ def get_model_metadata(training_settings, model, input_scalers, weight_scale):
     return metadata    
 
 
-def save_model_data(model, metadata, name="deepsets_model"):
+def save_model_data(model, metadata, name="deepsets_model", save_onnx=True, device='cpu'):
     yaml.dump(metadata, open("deepsets_metadata.yaml", 'w'))
     model.save("deepsets_ensemble_best.pth")
+    if save_onnx is True:
+        model = model.to('cpu')
+        model.eval()
+        test_input = []
+        input_names = []
+        for k in model.features:
+            test_input.append(torch.randn(1, model.features[k]["size"], requires_grad=True).T[None, :])
+            input_names.append(k)
+        test_input.append(torch.ones(len(model.features), 1, dtype=int))
+        input_names.append("sample_indices")
+        test_input = tuple(test_input)
+        torch.onnx.export(model,
+                          test_input,
+                          "deepsets_model.onnx",
+                          export_params=True,
+                          opset_version=11,
+                          input_names=input_names,
+                          output_names=["output"])
+        model = model.to(device)
+        
     
     with zipfile.ZipFile("{}.zip".format(name), mode='w') as zipf:
         zipf.write("deepsets_metadata.yaml")
         zipf.write("deepsets_ensemble_best.pth")
+        zipf.write("deepsets_model.onnx")
 
     os.remove("deepsets_metadata.yaml")
     os.remove("deepsets_ensemble_best.pth")
+    os.remove("deepsets_model.onnx")
     return None
 
 

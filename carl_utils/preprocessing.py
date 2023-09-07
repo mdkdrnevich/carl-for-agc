@@ -152,12 +152,16 @@ def prep_inputs_for_training(batch_list, features, x_scalers, weight_norm=1):
             if t.size(dim=0) == 0:
                 t = torch.zeros(1, features[list(features.keys())[i]]["size"])
             x_batch_list[i].append(t)
+            # Keep track of the size of each set in the batch
             sample_indices[i].append(t.size(dim=0))
         y_batch_list.append(sample[-2])
         w_batch_list.append(sample[-1])
     x_batch = []
     for i, feat in enumerate(features):
+        # Build a 2D tensor with row dimension equal to the sum of the set sizes
+        #    and column dimension equal to the number of inputs for that feature
         x = torch.cat(x_batch_list[i], dim=0)
+        # Normalize the inputs
         x = x_scalers[i].transform(x).astype(np.float32)
         if features[feat]["set"] is True:
             x_batch.append(torch.from_numpy(x.T)[None, :]) # Model expects rows to be features
