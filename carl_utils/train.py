@@ -24,8 +24,8 @@ def test(model, loader, leave=False, device='cpu'):
         x = [x_i.to(device) for x_i in data[0]]
         y = data[1].to(device)
         w = data[2].to(device)
-        sample_indices.to(device)
-        batch_output = model(*x, sample_indices)
+        x.append(sample_indices.to(device))
+        batch_output = model(*x)
         batch_loss_item = F.binary_cross_entropy(batch_output, y, weight=w).cpu().item()
         sum_loss += batch_loss_item
         t.set_description("loss = %.5f" % (batch_loss_item))
@@ -46,8 +46,8 @@ def train_epoch(model, optimizer, loader, leave=False, device='cpu'):
         x = [x_i.to(device) for x_i in data[0]]
         y = data[1].to(device)
         w = data[2].to(device)
-        sample_indices.to(device)
-        batch_output = model(*x, sample_indices)
+        x.append(sample_indices.to(device))
+        batch_output = model(*x)
         batch_loss = F.binary_cross_entropy(batch_output, y, weight=w)
         batch_loss.backward()
         batch_loss_item = batch_loss.item()
@@ -195,19 +195,30 @@ def save_model_data(model, metadata, name="deepsets_model", save_onnx=True, devi
         model.eval()
         test_input = []
         input_names = []
+        dynamic_axes = {}
         for k in model.features:
-            test_input.append(torch.randn(1, model.features[k]["size"], requires_grad=True).T[None, :])
+            test_input.append(torch.randn(1, model.features[k]["size"]).T[None, :])
             input_names.append(k)
+            if model.features[k]["set"] is True:
+                dynamic_axes[k] = {2 : "batch_and_set_size"}
+            else:
+                dynamic_axes[k] = {1 : "batch_size"}
         test_input.append(torch.ones(len(model.features), 1, dtype=int))
         input_names.append("sample_indices")
+        dynamic_axes["sample_indices"] = {1 : "batch_size"}
+        dynamic_axes["output"] = {0 : "batch_size"}
         test_input = tuple(test_input)
-        torch.onnx.export(model,
+
+        traced_model = torch.jit.trace(model, example_inputs=test_input)
+        torch.onnx.export(traced_model,
                           test_input,
                           "deepsets_model.onnx",
                           export_params=True,
-                          opset_version=11,
+                          opset_version=16,
+                          do_constant_folding=True,
                           input_names=input_names,
-                          output_names=["output"])
+                          output_names=["output"],
+                          dynamic_axes=dynamic_axes)
         model = model.to(device)
         
     

@@ -16,8 +16,87 @@ import zipfile
 import yaml
 import collections
 import io
+from typing import List
+
+
+
+class PhiNet(torch.nn.Module):
+    def __init__(self, input_size, phi_nodes):
+        super(PhiNet, self).__init__()
+        phi_layers = [Conv1d(input_size, phi_nodes[0], 1),
+                      ReLU()]
+        for i in range(len(phi_nodes) - 1):
+            phi_layers.append(Conv1d(phi_nodes[i], phi_nodes[i+1], 1))
+            phi_layers.append(ReLU())
+        self.phi = Seq(*phi_layers)
+
+    def forward(self, x, sample_indices):
+        rval = self.phi(x)
+        return torch.cat([torch.mean(rval[:, :, sample_indices[j]:sample_indices[j+1]], dim=2) for j in range(sample_indices.size(0)-1)], dim=0)
+
+
+class Reshape(torch.nn.Module):
+    def __init__(self, input_size):
+        super(Reshape, self).__init__()
+        self.input_size = input_size
+        
+    def forward(self, x, sample_indices):
+        return x.reshape(-1, self.input_size)
+
 
 class DeepSetsEnsemble(torch.nn.Module):
+    def __init__(self, features, phi_nodes, mlp_nodes, outputs=1):
+        super(DeepSetsEnsemble, self).__init__()
+        self.features = collections.OrderedDict(sorted(features.items()))
+        self._num_features = len(features)
+        self._phi_nodes = phi_nodes
+        self._mlp_nodes = mlp_nodes
+        self.phi = []
+        for feat in self.features:
+            # Create an embedding layer for the DeepSets style model
+            if self.features[feat]["set"] is True:
+                self.phi.append(torch.jit.script(PhiNet(self.features[feat]["size"], phi_nodes)))
+            else:
+                self.phi.append(torch.jit.trace(Reshape(self.features[feat]["size"])))
+        self.phi = nn.ModuleList(self.phi)
+
+        # Then have one large MLP that takes in the representations and standard inputs
+        total_repr_size = 0
+        for feat in self.features:
+            if self.features[feat]["set"] is True:
+                total_repr_size += phi_nodes[-1]
+            else:
+                total_repr_size += self.features[feat]["size"]
+                
+        mlp_layers = [Lin(total_repr_size, mlp_nodes[0]), BatchNorm1d(mlp_nodes[0]), ReLU()]
+        for i in range(len(mlp_nodes) - 1):
+            mlp_layers.append(Lin(mlp_nodes[i], mlp_nodes[i+1]))
+            mlp_layers.append(BatchNorm1d(mlp_nodes[i+1]))
+            mlp_layers.append(ReLU())
+        mlp_layers.append(Lin(mlp_nodes[-1], outputs))
+        mlp_layers.append(Sigmoid())
+        self.mlp = Seq(*mlp_layers)
+
+
+    def forward(self, *args: List[torch.Tensor]): #x: ModelArgs, sample_indices: torch.Tensor):
+        x = args[:-1]
+        sample_indices = args[-1]
+        zero_pad = torch.zeros(sample_indices.size(0), 1, dtype=torch.int64).to(sample_indices.device)
+        sample_indices = torch.cat([zero_pad, sample_indices], dim=1)
+        sample_indices = torch.cumsum(sample_indices, dim=1)
+        repr_values = []
+        for i, phi in enumerate(self.phi):
+            repr_values.append(phi(x[i], sample_indices[i]))
+        z = torch.cat(repr_values, dim=1)
+        return self.mlp(z)
+        
+
+    def save(self, path):
+        torch.save(self.state_dict(), path)
+        
+
+
+class DeepSetsEnsemble2(torch.nn.Module):
     def __init__(self, features, phi_nodes, mlp_nodes, outputs=1):
         super(DeepSetsEnsemble, self).__init__()
         self.features = collections.OrderedDict(sorted(features.items()))
@@ -70,7 +149,8 @@ class DeepSetsEnsemble(torch.nn.Module):
     def forward(self, *args):
         x = args[:-1]
         sample_indices = args[-1]
-        sample_indices = torch.cat([torch.zeros(sample_indices.size(0), 1, dtype=int).to(sample_indices.device), sample_indices], dim=1)
+        zero_pad = torch.zeros(sample_indices.size(0), 1, dtype=int).to(sample_indices.device)
+        sample_indices = torch.cat([zero_pad, sample_indices], dim=1)
         sample_indices = torch.cumsum(sample_indices, dim=1)
         #repr_values = []
         #phi_counter = torch.cumsum(self._feat_is_set, dim=0) - 1
