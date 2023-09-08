@@ -311,5 +311,8 @@ def load_onnx_model(path_to_zip, device='cpu'):
 
 def load_onnx_session(path_to_zip, device='cpu'):
     with zipfile.ZipFile(path_to_zip, 'r') as zf:
-        onnx_model = onnxruntime.InferenceSession(zf.read("deepsets_model.onnx"), providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'CPUExecutionProvider'])
+        onnx_model = onnxruntime.InferenceSession(zf.read("deepsets_model.onnx"),
+                                                  providers=['TensorrtExecutionProvider',
+                                                             ('CUDAExecutionProvider', {"cudnn_conv_algo_search": "DEFAULT"}),
+                                                             'CPUExecutionProvider'])
     return onnx_model
