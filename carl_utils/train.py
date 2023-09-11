@@ -197,13 +197,14 @@ def save_model_data(model, metadata, name="deepsets_model", save_onnx=True, devi
         input_names = []
         dynamic_axes = {}
         for k in model.features:
-            test_input.append(torch.randn(1, model.features[k]["size"]).T[None, :])
+            test_input.append(torch.randn(2, model.features[k]["size"]).T[None, :])
             input_names.append(k)
             if model.features[k]["set"] is True:
                 dynamic_axes[k] = {2 : "batch_and_set_size"}
             else:
                 dynamic_axes[k] = {1 : "batch_size"}
-        test_input.append(torch.ones(len(model.features), 1, dtype=int))
+        #test_input.append(torch.ones(len(model.features), 1, dtype=int))
+        test_input.append(torch.cat([torch.arange(2)[None,:] for _ in range(len(model.features))], dim=0))
         input_names.append("sample_indices")
         dynamic_axes["sample_indices"] = {1 : "batch_size"}
         dynamic_axes["output"] = {0 : "batch_size"}
