@@ -6,11 +6,11 @@ General:
   VariationPath: ""
 
 Regions:
-  - Name: "4j1bCR"
+  - Name: "4j1b CR"
     RegionPath: "4j1b"
     Variable: "$H_T$ [GeV]"
     Binning: [ 50.        ,  95.45454545, 140.90909091, 186.36363636, 231.81818182, 277.27272727, 322.72727273, 368.18181818,413.63636364, 459.09090909, 504.54545455, 550.        ]
-  - Name: "4j2bSR"
+  - Name: "4j2b SR"
     RegionPath: "4j2b"
     Variable: "$m_{bjj}$ [GeV]"
     Binning: [ 50.        ,  95.45454545, 140.90909091, 186.36363636, 231.81818182, 277.27272727, 322.72727273, 368.18181818,413.63636364, 459.09090909, 504.54545455, 550.        ]
@@ -36,7 +36,7 @@ Samples:
     SamplePath: "single_top_tW"
 
 Systematics:
-  - Name: "MEvariation"
+  - Name: "ME variation"
     Type: "NormPlusShape"
     Up:
       VariationPath: "_ME_var"
@@ -44,7 +44,7 @@ Systematics:
       Symmetrize: True
     Samples: "ttbar"
 
-  - Name: "PSvariation"
+  - Name: "PS variation"
     Type: "NormPlusShape"
     Up:
       VariationPath: "_PS_var"
@@ -52,7 +52,7 @@ Systematics:
       Symmetrize: True
     Samples: "ttbar"
 
-  - Name: "ttbarscalevariations"
+  - Name: "ttbar scale variations"
     Type: "NormPlusShape"
     Up:
       VariationPath: "_scaleup"
@@ -60,49 +60,49 @@ Systematics:
       VariationPath: "_scaledown"
     Samples: "ttbar"
 
-  - Name: "Jetenergyscale"
+  - Name: "Jet energy scale"
     Type: "NormPlusShape"
     Up:
       VariationPath: "_pt_scale_up"
     Down:
       Symmetrize: True
 
-  - Name: "Jetenergyresolution"
+  - Name: "Jet energy resolution"
     Type: "NormPlusShape"
     Up:
       VariationPath: "_pt_res_up"
     Down:
       Symmetrize: True
 
-  - Name: "btagNP1"
+  - Name: "b-tag NP 1"
     Type: "NormPlusShape"
     Up:
       VariationPath: "_btag_var_0_up"
     Down:
       VariationPath: "_btag_var_0_down"
 
-  - Name: "btagNP2"
+  - Name: "b-tag NP 2"
     Type: "NormPlusShape"
     Up:
       VariationPath: "_btag_var_1_up"
     Down:
       VariationPath: "_btag_var_1_down"
 
-  - Name: "btagNP3"
+  - Name: "b-tag NP 3"
     Type: "NormPlusShape"
     Up:
       VariationPath: "_btag_var_2_up"
     Down:
       VariationPath: "_btag_var_2_down"
 
-  - Name: "btagNP4"
+  - Name: "b-tag NP 4"
     Type: "NormPlusShape"
     Up:
       VariationPath: "_btag_var_3_up"
     Down:
       VariationPath: "_btag_var_3_down"
 
-  - Name: "Wjetsscalevariations"
+  - Name: "W+jets scale variations"
     Type: "NormPlusShape"
     Up:
       VariationPath: "_scale_var_up"

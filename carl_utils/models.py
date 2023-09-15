@@ -10,7 +10,8 @@ from torch.nn import (
     Sigmoid,
     Conv1d,
 )
-import onnx, onnxruntime
+#import onnx
+import onnxruntime
 
 import zipfile
 import yaml
@@ -29,6 +30,12 @@ class PhiNet(torch.nn.Module):
             phi_layers.append(Conv1d(phi_nodes[i], phi_nodes[i+1], 1))
             phi_layers.append(ReLU())
         self.phi = Seq(*phi_layers)
+        
+    def __getstate__(self):
+        return self.state_dict()
+    
+    def __setstate__(self, d):
+        self.load_state_dict(d)
 
     def forward(self, x, sample_indices):
         rval = self.phi(x)
@@ -39,6 +46,12 @@ class Reshape(torch.nn.Module):
     def __init__(self, input_size):
         super(Reshape, self).__init__()
         self.input_size = input_size
+        
+    def __getstate__(self):
+        return self.state_dict()
+    
+    def __setstate__(self, d):
+        self.load_state_dict(d)
         
     def forward(self, x, sample_indices):
         return x.reshape(-1, self.input_size)
@@ -76,7 +89,12 @@ class DeepSetsEnsemble(torch.nn.Module):
         mlp_layers.append(Lin(mlp_nodes[-1], outputs))
         mlp_layers.append(Sigmoid())
         self.mlp = Seq(*mlp_layers)
-
+        
+    def __getstate__(self):
+        return self.state_dict()
+    
+    def __setstate__(self, d):
+        self.load_state_dict(d)
 
     def forward(self, *args: List[torch.Tensor]): #x: ModelArgs, sample_indices: torch.Tensor):
         x = args[:-1]
@@ -304,10 +322,10 @@ def load_model(path_to_zip, device='cpu'):
         model.load_state_dict(torch.load(io.BytesIO(zf.read("deepsets_ensemble_best.pth")), map_location=device))
     return model
 
-def load_onnx_model(path_to_zip, device='cpu'):
-    with zipfile.ZipFile(path_to_zip, 'r') as zf:
-        onnx_model = onnx.load(io.BytesIO(zf.read("deepsets_model.onnx")))
-    return onnx_model
+#def load_onnx_model(path_to_zip, device='cpu'):
+#    with zipfile.ZipFile(path_to_zip, 'r') as zf:
+#        onnx_model = onnx.load(io.BytesIO(zf.read("deepsets_model.onnx")))
+#    return onnx_model
 
 def load_onnx_session(path_to_zip, device='cpu'):
     with zipfile.ZipFile(path_to_zip, 'r') as zf:

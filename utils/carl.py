@@ -6,6 +6,13 @@ import torch
 from torch.utils.data import TensorDataset, ConcatDataset, DataLoader
 import awkward as ak
 import collections
+import json
+import os
+
+
+def to_numpy(tensor):
+    return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()
+
 
 class AGCDataset:
     def __init__(
@@ -63,7 +70,7 @@ class AGCDataset:
     
 def prep_inputs_for_eval(batch_list, features, x_scalers):
     num_features = len(features)
-    sample_indices = [[0] for _ in range(num_features)]
+    sample_indices = [[] for _ in range(num_features)]
     x_batch_list = [[] for _ in range(num_features)]
     for sample in batch_list:
         for i, t in enumerate(sample[:num_features]):
@@ -79,8 +86,9 @@ def prep_inputs_for_eval(batch_list, features, x_scalers):
         if features[feat]["set"] is True:
             x_batch.append(torch.from_numpy(x.T)[None, :]) # Model expects rows to be features
         else:
-            x_batch.append(torch.from_numpy(x)[None, :])
-    sample_indices = torch.from_numpy(np.array([np.cumsum(s) for s in sample_indices]))
+            x_batch.append(torch.from_numpy(x))
+    #sample_indices = torch.from_numpy(np.array([np.cumsum(s) for s in sample_indices]))
+    sample_indices = torch.tensor(sample_indices)
     return (x_batch,), sample_indices
 
 
@@ -126,3 +134,62 @@ def get_inference_results_local(events, model, features, X_scalers):
     loader = get_eval_DataLoader(carl_utils.preprocessing.ConcatDataset(ds), features, X_scalers)
     carl_weights = carl_utils.eval.get_r_hats(model, loader)
     return carl_weights
+
+
+def get_inference_results_triton(triton_client, model_name, events, features, X_scalers):
+    import tritonclient.http as httpclient
+    print("Is server live: {}".format(triton_client.is_server_live()))
+    print("Is model ready: {}".format(triton_client.is_model_ready("carl_PS_var")))
+    #print(os.path.realpath(os.path.curdir))
+    #triton_client.update_log_settings({"log_file": "/home/atlas-coffea/carl-for-agc/models/triton.log"})
+    
+    model_metadata = triton_client.get_model_metadata(model_name)
+    onnx_inputs = sorted(model_metadata["inputs"], key=lambda x: x["name"])
+    output_name = model_metadata["outputs"][0]["name"]
+    output = httpclient.InferRequestedOutput(output_name)
+    
+    inpt = []
+    for m in onnx_inputs:
+        if m["name"] == "sample_indices":
+            continue
+        inpt.append(httpclient.InferInput(m["name"], m["shape"], m["datatype"]))
+    # Be sure to add 'sample_indices' to the end for consistency in ordering
+    for m in onnx_inputs:
+        if m["name"] == "sample_indices":
+            inpt.append(httpclient.InferInput(m["name"], m["shape"], m["datatype"]))
+    
+    feature_map = {}
+    for key in features:
+        for branch in features[key]["subfeatures"]:
+            if "_" in branch:
+                split = branch.split("_")
+                object_type = split[0]
+                property_name = "_".join(split[1:])
+                feature_map[branch] = events[object_type][property_name]
+            else:
+                feature_map[branch] = events[branch]
+    
+    ds = AGCDataset(features, feature_map)
+    loader = get_eval_DataLoader(carl_utils.preprocessing.ConcatDataset(ds), features, X_scalers)
+    
+    score_list = []
+    target_list = []
+    weight_list = []
+    for batch in loader:
+        data = batch[0]
+        sample_indices = batch[1]
+        x = [x_i for x_i in data[0]]
+        x.append(sample_indices)
+        for i, x_i in enumerate(x):
+            x_i = to_numpy(x_i)
+            inpt[i].set_shape(x_i.shape)
+            inpt[i].set_data_from_numpy(x_i)
+        batch_score = triton_client.infer(
+            model_name=model_name,
+            model_version="1",
+            inputs=inpt,
+            outputs=[output],
+        ).as_numpy(output_name)
+        score_list.append(batch_score)    
+    
+    return to_numpy(torch.cat(score_list)).flatten()

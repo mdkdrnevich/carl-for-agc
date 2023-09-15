@@ -86,8 +86,7 @@ config = {
         # name of ML model in Triton server
         "MODEL_NAME": "reconstruction_bdt_xgb",
         # URL of Triton server
-        #"TRITON_URL": "agc-triton-inference-server:8001",
-        "TRITON_URL": "triton-traefik.triton.svc.cluster.local:8000",
+        "TRITON_URL": "agc-triton-inference-server:8001",
         # Triton model version which is trained on even events
         "MODEL_VERSION_EVEN": "2",
         # Triton model version which is trained on odd events
@@ -189,4 +188,12 @@ config = {
             "Quark vs Gluon likelihood discriminator of the $b_{top-lep}$ Jet",
         ],
     },
+    "carl": {
+        # name of ML model in Triton server
+        "MODEL_NAME": "carl_PS_var",
+        # URL of Triton server
+        "TRITON_URL": "triton-traefik.triton.svc.cluster.local:8000",
+        # Triton model version
+        "MODEL_VERSION": "1"
+    }
 }
